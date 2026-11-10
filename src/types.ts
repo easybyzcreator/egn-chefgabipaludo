@@ -214,6 +214,7 @@ export interface Settings {
   introDescription?: string;
   introButtonText?: string;
   introBottomText?: string;
+  storageTipsImage?: string; // Imagem informativa 1080x1350 para Como Armazenar e Aquecer
   // Catalog selector settings
   selectorEnabled?: boolean;
   selectorTitle?: string;

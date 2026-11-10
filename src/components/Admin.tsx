@@ -250,6 +250,32 @@ const getOrderScheduledInfo = (order: Order): { date: Date | null, timeStr: stri
   return { date, timeStr, isDelivery, dateDisplay, rawDateStr };
 };
 
+const formatBRDateOnly = (val?: string): string => {
+  if (!val) return '';
+  const clean = val.trim();
+  if (clean.includes('/')) return clean;
+  if (clean.includes('-')) {
+    const parts = clean.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+  }
+  return clean;
+};
+
+const parseBRDateToISO = (val?: string): string => {
+  if (!val) return '';
+  const clean = val.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) return clean;
+  if (clean.includes('/')) {
+    const parts = clean.split('/');
+    if (parts.length === 3 && parts[2]?.length === 4) {
+      return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+  }
+  return clean;
+};
+
 export default function Admin({ settings, setSettings, setIsAdmin }: { 
   settings: Settings, 
   setSettings: React.Dispatch<React.SetStateAction<Settings>>,
@@ -324,16 +350,20 @@ export default function Admin({ settings, setSettings, setIsAdmin }: {
   const [newYearLabel, setNewYearLabel] = useState('');
   const [viewingSavedYear, setViewingSavedYear] = useState<{ id: string; label: string; data: any; date: string } | null>(null);
 
-  // Finance Dates (default to start and end of current month)
+  // Finance Dates (default to start and end of current month formatted as DD/MM/AAAA)
   const [financeStartDate, setFinanceStartDate] = useState<string>(() => {
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    return firstDay.toISOString().split('T')[0];
+    const d = String(firstDay.getDate()).padStart(2, '0');
+    const m = String(firstDay.getMonth() + 1).padStart(2, '0');
+    return `${d}/${m}/${firstDay.getFullYear()}`;
   });
   const [financeEndDate, setFinanceEndDate] = useState<string>(() => {
     const now = new Date();
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return lastDay.toISOString().split('T')[0];
+    const d = String(lastDay.getDate()).padStart(2, '0');
+    const m = String(lastDay.getMonth() + 1).padStart(2, '0');
+    return `${d}/${m}/${lastDay.getFullYear()}`;
   });
 
   // Fixed Costs Inputs
@@ -1001,7 +1031,7 @@ export default function Admin({ settings, setSettings, setIsAdmin }: {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, callback: (base64: string) => void, imageType: boolean | 'logo' | 'background' | 'catalog' | 'product' = 'product') => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, callback: (base64: string) => void, imageType: boolean | 'logo' | 'background' | 'catalog' | 'product' | 'dicas' | 'tips' = 'product') => {
     const file = e.target.files?.[0];
     if (file) {
       // Compress image if it's too large
@@ -1026,6 +1056,10 @@ export default function Admin({ settings, setSettings, setIsAdmin }: {
             MAX_WIDTH = 800;
             MAX_HEIGHT = 800;
             quality = 0.4;
+          } else if (imageType === 'dicas' || imageType === 'tips') {
+            MAX_WIDTH = 1080;
+            MAX_HEIGHT = 1350;
+            quality = 0.7;
           } else if (imageType === 'catalog') {
             MAX_WIDTH = 450;
             MAX_HEIGHT = 450;
@@ -3031,6 +3065,19 @@ export default function Admin({ settings, setSettings, setIsAdmin }: {
           if (item.mealOptions.sides && item.mealOptions.sides.length > 0) optionsText += `  - ACOMPANHAMENTOS: ${item.mealOptions.sides.map((s: any) => s.name).join(', ')}\n`;
         }
 
+        if (item.comboOptions?.items && item.comboOptions.items.length > 0) {
+          optionsHtml += `
+            <div style="font-size: 10px; color: #111; padding: 4px 8px; margin-top: 3px; line-height: 1.35; background: #f5f5f5; border-radius: 4px; border-left: 2px solid #444;">
+              <div style="font-weight: bold; margin-bottom: 2px; text-transform: uppercase;">Sabores escolhidos no combo:</div>
+              ${item.comboOptions.items.map((sub: any) => `<div>• <b>${sub.quantity}x</b> ${sub.productTitle}</div>`).join('')}
+            </div>
+          `;
+          optionsText += `  Sabores do combo:\n`;
+          item.comboOptions.items.forEach((sub: any) => {
+            optionsText += `    - ${sub.quantity}x ${sub.productTitle}\n`;
+          });
+        }
+
         const itemTotal = (Number(item.price || 0) * Number(item.quantity || 1)).toFixed(2).replace('.', ',');
         const sizeStr = item.selectedSize?.name ? ` (${String(item.selectedSize.name).toUpperCase()})` : '';
 
@@ -3463,24 +3510,42 @@ TOTAL: ${currencySymbol} ${orderTotalStr}
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    setFinanceStartDate(firstDay.toISOString().split('T')[0]);
-    setFinanceEndDate(lastDay.toISOString().split('T')[0]);
+    const d1 = String(firstDay.getDate()).padStart(2, '0');
+    const m1 = String(firstDay.getMonth() + 1).padStart(2, '0');
+    const y1 = firstDay.getFullYear();
+    const d2 = String(lastDay.getDate()).padStart(2, '0');
+    const m2 = String(lastDay.getMonth() + 1).padStart(2, '0');
+    const y2 = lastDay.getFullYear();
+    setFinanceStartDate(`${d1}/${m1}/${y1}`);
+    setFinanceEndDate(`${d2}/${m2}/${y2}`);
   };
 
   const setPresetLastMonth = () => {
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
-    setFinanceStartDate(firstDay.toISOString().split('T')[0]);
-    setFinanceEndDate(lastDay.toISOString().split('T')[0]);
+    const d1 = String(firstDay.getDate()).padStart(2, '0');
+    const m1 = String(firstDay.getMonth() + 1).padStart(2, '0');
+    const y1 = firstDay.getFullYear();
+    const d2 = String(lastDay.getDate()).padStart(2, '0');
+    const m2 = String(lastDay.getMonth() + 1).padStart(2, '0');
+    const y2 = lastDay.getFullYear();
+    setFinanceStartDate(`${d1}/${m1}/${y1}`);
+    setFinanceEndDate(`${d2}/${m2}/${y2}`);
   };
 
   const setPresetLast30Days = () => {
     const end = new Date();
     const start = new Date();
     start.setDate(end.getDate() - 29);
-    setFinanceStartDate(start.toISOString().split('T')[0]);
-    setFinanceEndDate(end.toISOString().split('T')[0]);
+    const d1 = String(start.getDate()).padStart(2, '0');
+    const m1 = String(start.getMonth() + 1).padStart(2, '0');
+    const y1 = start.getFullYear();
+    const d2 = String(end.getDate()).padStart(2, '0');
+    const m2 = String(end.getMonth() + 1).padStart(2, '0');
+    const y2 = end.getFullYear();
+    setFinanceStartDate(`${d1}/${m1}/${y1}`);
+    setFinanceEndDate(`${d2}/${m2}/${y2}`);
   };
 
   const setPresetAllTime = () => {
@@ -3490,8 +3555,10 @@ TOTAL: ${currencySymbol} ${orderTotalStr}
 
   // Financial Calculations useMemo
   const { filteredFinanceOrders, totalRevenue, appliedFixed, totalVariable, netProfit, daysInPeriod, monthlyFixedSum } = useMemo(() => {
-    const start = financeStartDate ? new Date(financeStartDate + 'T00:00:00') : null;
-    const end = financeEndDate ? new Date(financeEndDate + 'T23:59:59') : null;
+    const isoStart = parseBRDateToISO(financeStartDate);
+    const isoEnd = parseBRDateToISO(financeEndDate);
+    const start = isoStart ? new Date(isoStart + 'T00:00:00') : null;
+    const end = isoEnd ? new Date(isoEnd + 'T23:59:59') : null;
 
     const parseDateStr = (str: string, lang: string = 'pt') => {
       if (!str) return null;
@@ -3567,8 +3634,8 @@ TOTAL: ${currencySymbol} ${orderTotalStr}
     // Calculate days difference
     let days = 30;
     if (financeStartDate && financeEndDate) {
-      const s = new Date(financeStartDate + 'T00:00:00');
-      const e = new Date(financeEndDate + 'T00:00:00');
+      const s = new Date(parseBRDateToISO(financeStartDate) + 'T00:00:00');
+      const e = new Date(parseBRDateToISO(financeEndDate) + 'T00:00:00');
       const diffTime = Math.abs(e.getTime() - s.getTime());
       days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
     }
@@ -4348,24 +4415,24 @@ TOTAL: ${currencySymbol} ${orderTotalStr}
               {/* Date Filters */}
               {financeSubTab === 'real' && (
                 <div className="flex flex-col gap-2 bg-gray-50/90 p-4 rounded-2xl border border-gray-200 shadow-inner shrink-0">
-                  <div className="text-[10px] font-black uppercase tracking-wider text-gray-600">Filtrar por Período</div>
+                  <div className="text-[10px] font-black uppercase tracking-wider text-gray-600">Filtrar por Período (DD/MM/AAAA)</div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex items-center gap-1.5 bg-white border border-gray-300 rounded-xl px-3 py-1.5 shadow-xs">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase">De:</span>
-                      <input 
-                        type="date" 
-                        className="border-0 bg-transparent text-xs font-bold text-gray-800 outline-none cursor-pointer"
+                    <div className="w-36 sm:w-40">
+                      <label className="text-[9px] font-extrabold text-gray-500 uppercase block mb-0.5">De:</label>
+                      <BRDatePicker
                         value={financeStartDate}
-                        onChange={e => setFinanceStartDate(e.target.value)}
+                        onChange={(brDate) => setFinanceStartDate(brDate)}
+                        placeholder="DD/MM/AAAA"
+                        className="py-1 px-2.5 text-xs rounded-xl shadow-xs"
                       />
                     </div>
-                    <div className="flex items-center gap-1.5 bg-white border border-gray-300 rounded-xl px-3 py-1.5 shadow-xs">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase">Até:</span>
-                      <input 
-                        type="date" 
-                        className="border-0 bg-transparent text-xs font-bold text-gray-800 outline-none cursor-pointer"
+                    <div className="w-36 sm:w-40">
+                      <label className="text-[9px] font-extrabold text-gray-500 uppercase block mb-0.5">Até:</label>
+                      <BRDatePicker
                         value={financeEndDate}
-                        onChange={e => setFinanceEndDate(e.target.value)}
+                        onChange={(brDate) => setFinanceEndDate(brDate)}
+                        placeholder="DD/MM/AAAA"
+                        className="py-1 px-2.5 text-xs rounded-xl shadow-xs"
                       />
                     </div>
                   </div>
@@ -5070,12 +5137,12 @@ TOTAL: ${currencySymbol} ${orderTotalStr}
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase text-gray-500">Data do Gasto</label>
-                        <input 
-                          type="date" 
-                          className="w-full p-2.5 rounded-xl border border-gray-300 bg-white text-xs font-bold text-gray-800 outline-none focus:ring-2 focus:ring-emerald-500"
+                        <label className="text-[10px] font-bold uppercase text-gray-500">Data do Gasto (DD/MM/AAAA)</label>
+                        <BRDatePicker 
                           value={newVarCost.date || ''}
-                          onChange={e => setNewVarCost({...newVarCost, date: e.target.value})}
+                          onChange={val => setNewVarCost({...newVarCost, date: parseBRDateToISO(val)})}
+                          className="p-2 rounded-xl text-xs"
+                          placeholder="DD/MM/AAAA"
                         />
                       </div>
                     </div>
@@ -5116,8 +5183,8 @@ TOTAL: ${currencySymbol} ${orderTotalStr}
                       .filter(vc => {
                         if (!vc.date) return false;
                         const vcDate = new Date(vc.date + 'T12:00:00');
-                        const start = financeStartDate ? new Date(financeStartDate + 'T00:00:00') : null;
-                        const end = financeEndDate ? new Date(financeEndDate + 'T23:59:59') : null;
+                        const start = financeStartDate ? new Date(parseBRDateToISO(financeStartDate) + 'T00:00:00') : null;
+                        const end = financeEndDate ? new Date(parseBRDateToISO(financeEndDate) + 'T23:59:59') : null;
                         if (start && vcDate < start) return false;
                         if (end && vcDate > end) return false;
                         return true;
@@ -5764,69 +5831,109 @@ TOTAL: ${currencySymbol} ${orderTotalStr}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold uppercase opacity-60">Slogan do App</label>
-                  <textarea 
-                    rows={2}
-                    className="w-full p-3 rounded-xl border border-gray-300"
-                    value={settings?.slogan || ''}
-                    onChange={e => setSettings({...settings, slogan: e.target.value})}
-                    placeholder="Ex: O sabor que você merece..."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-bold uppercase opacity-60">Mensagem Final WhatsApp</label>
-                  <textarea 
-                    rows={4}
-                    className="w-full p-3 rounded-xl border border-gray-300 resize-y min-h-[110px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                    value={settings?.whatsappClosingMessage || ''}
-                    onChange={e => setSettings({...settings, whatsappClosingMessage: e.target.value})}
-                    placeholder="Ex: Obrigada pelo pedido..."
-                  />
-                </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold uppercase opacity-60">Mensagem Final WhatsApp</label>
+                <textarea 
+                  rows={4}
+                  className="w-full p-3 rounded-xl border border-gray-300 resize-y min-h-[110px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  value={settings?.whatsappClosingMessage || ''}
+                  onChange={e => setSettings({...settings, whatsappClosingMessage: e.target.value})}
+                  placeholder="Ex: Obrigada pelo pedido..."
+                />
               </div>
 
-
-
-              <div className="space-y-2">
-                <label className="text-sm font-bold uppercase opacity-60">Imagem de Fundo do App</label>
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-32 h-20 rounded-xl bg-white border border-gray-200 flex items-center justify-center overflow-hidden shadow-sm">
-                      {settings?.backgroundImage ? (
-                        <img 
-                          key={settings.backgroundImage}
-                          src={settings.backgroundImage} 
-                          alt="Background Preview" 
-                          className="w-full h-full object-cover" 
-                          referrerPolicy="no-referrer" 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2 p-4 bg-white/50 rounded-2xl border border-gray-200">
+                  <label className="text-sm font-bold uppercase opacity-60 block">Imagem de Fundo do App</label>
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-32 h-20 rounded-xl bg-white border border-gray-200 flex items-center justify-center overflow-hidden shadow-sm">
+                        {settings?.backgroundImage ? (
+                          <img 
+                            key={settings.backgroundImage}
+                            src={settings.backgroundImage} 
+                            alt="Background Preview" 
+                            className="w-full h-full object-cover" 
+                            referrerPolicy="no-referrer" 
+                          />
+                        ) : (
+                          <div className="text-[10px] text-gray-400 font-bold uppercase">Sem fundo</div>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <input 
+                          type="file" 
+                          id="bg-upload"
+                          accept="image/*"
+                          onChange={e => handleFileChange(e, (b64) => setSettings(prev => ({...prev, backgroundImage: b64})), 'background')}
+                          className="hidden"
                         />
-                      ) : (
-                        <div className="text-[10px] text-gray-400 font-bold uppercase">Sem fundo</div>
-                      )}
+                        <label 
+                          htmlFor="bg-upload"
+                          className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-xs font-bold cursor-pointer hover:bg-gray-50 transition-colors text-black shadow-xs inline-block text-center"
+                        >
+                          Fazer Upload
+                        </label>
+                        {settings?.backgroundImage && (
+                          <button
+                            type="button"
+                            onClick={() => setSettings(prev => ({...prev, backgroundImage: ''}))}
+                            className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-bold cursor-pointer hover:bg-red-100 transition-colors"
+                          >
+                            Remover Imagem
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex flex-col gap-1">
+                  </div>
+                </div>
+
+                <div className="space-y-2 p-4 bg-white/50 rounded-2xl border border-gray-200">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-sm font-bold uppercase opacity-80 text-gray-800">
+                      Como Armazenar e Aquecer
+                    </label>
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100/80 border border-amber-300 px-2 py-0.5 rounded-md">
+                      1080 x 1350
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-500">
+                    Imagem exibida no modal quando o cliente clica na tag do cardápio.
+                  </p>
+                  <div className="flex items-center gap-4 pt-1">
+                    <div className="w-20 h-24 rounded-xl bg-white border border-gray-200 flex items-center justify-center overflow-hidden shadow-sm shrink-0">
+                      <img 
+                        key={settings?.storageTipsImage || 'default-tips'}
+                        src={settings?.storageTipsImage || "/images/dicas.png"} 
+                        alt="Dicas Preview" 
+                        className="w-full h-full object-contain" 
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = '/images/dishes/dicas.png';
+                        }}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
                       <input 
                         type="file" 
-                        id="bg-upload"
+                        id="tips-upload"
                         accept="image/*"
-                        onChange={e => handleFileChange(e, (b64) => setSettings(prev => ({...prev, backgroundImage: b64})), 'background')}
+                        onChange={e => handleFileChange(e, (b64) => setSettings(prev => ({...prev, storageTipsImage: b64})), 'dicas')}
                         className="hidden"
                       />
                       <label 
-                        htmlFor="bg-upload"
-                        className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-xs font-bold cursor-pointer hover:bg-gray-50 transition-colors text-black"
+                        htmlFor="tips-upload"
+                        className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-xs font-bold cursor-pointer hover:bg-gray-50 transition-colors text-black shadow-xs inline-block text-center"
                       >
-                        Fazer Upload
+                        Fazer Upload (1080x1350)
                       </label>
-                      {settings?.backgroundImage && (
+                      {settings?.storageTipsImage && (
                         <button
                           type="button"
-                          onClick={() => setSettings(prev => ({...prev, backgroundImage: ''}))}
-                          className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-bold cursor-pointer hover:bg-red-100 transition-colors"
+                          onClick={() => setSettings(prev => ({...prev, storageTipsImage: ''}))}
+                          className="px-4 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-bold cursor-pointer hover:bg-red-100 transition-colors"
                         >
-                          Remover Imagem
+                          Restaurar Padrão
                         </button>
                       )}
                     </div>
@@ -5894,7 +6001,7 @@ TOTAL: ${currencySymbol} ${orderTotalStr}
               </div>
 
               <div className="space-y-4 pt-4 border-t border-gray-100">
-                <h3 className="text-xl font-serif font-bold">Idioma e Checkout</h3>
+                <h3 className="text-xl font-serif font-bold">Checkout</h3>
                 
                 <div className="space-y-2">
                   <label className="text-sm font-bold uppercase opacity-60">Título do Checkout (Abaixo de "Detalhes do Pedido")</label>
@@ -6512,16 +6619,6 @@ TOTAL: ${currencySymbol} ${orderTotalStr}
                       placeholder="Aroma & Sabores"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase opacity-50 text-black">Subtítulo Informativo</label>
-                    <input 
-                      type="text" 
-                      className="w-full p-2.5 rounded-xl border border-gray-300 text-sm bg-white"
-                      value={settings?.selectorSubtitle || ''}
-                      onChange={e => setSettings({...settings, selectorSubtitle: e.target.value})}
-                      placeholder="Escolha sua experiência"
-                    />
-                  </div>
                 </div>
 
                 {/* Sub-card: ITEM DO CATÁLOGO 1 (ESQUERDA) */}
@@ -7088,7 +7185,7 @@ TOTAL: ${currencySymbol} ${orderTotalStr}
                                 </h4>
                                 {product.isCombo && (
                                   <span className="text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-950 whitespace-nowrap shadow-2xs">
-                                    🍱 Combo {product.comboQuantity || 5} marmitas
+                                    Combo {product.comboQuantity || 5} marmitas
                                   </span>
                                 )}
                                 {product.isActive === false && (
@@ -8940,7 +9037,7 @@ TOTAL: ${currencySymbol} ${orderTotalStr}
                           <div className="bg-amber-50 border border-amber-200 p-2.5 rounded-xl text-[11px] space-y-1 mt-2 text-amber-950">
                             <div className="flex items-center justify-between">
                               <span className="font-bold text-amber-950 flex items-center gap-1">
-                                🍱 Combo ({product.comboQuantity || 5} marmitas)
+                                Combo ({product.comboQuantity || 5} marmitas)
                               </span>
                               <span className="text-[10px] text-amber-800 font-bold">
                                 {product.comboAllowedProductIds && product.comboAllowedProductIds.length > 0
@@ -11121,44 +11218,16 @@ TOTAL: ${currencySymbol} ${orderTotalStr}
                       </span>
                     </div>
                     <div className="space-y-1.5">
-                      <input 
-                        type="text" 
-                        className="w-full p-3 rounded-xl border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 font-bold shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-800/40 text-sm"
-                        value={editOrderForm.pickupDate || ''}
-                        onChange={e => {
-                          const masked = handleDateMask(e.target.value);
-                          setEditOrderForm({...editOrderForm, pickupDate: masked, scheduledDate: masked});
-                        }}
+                      <BRDatePicker
+                        value={editOrderForm.pickupDate || editOrderForm.scheduledDate || ''}
+                        onChange={(formatted) => setEditOrderForm({
+                          ...editOrderForm,
+                          pickupDate: formatted,
+                          scheduledDate: formatted
+                        })}
                         placeholder="DD/MM/AAAA"
+                        className="p-3 text-sm"
                       />
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-gray-500 font-medium">Ou selecione pelo calendário:</span>
-                        <input
-                          type="date"
-                          className="px-2 py-1 border border-gray-300 rounded-lg text-xs font-bold text-gray-800 bg-white cursor-pointer"
-                          value={(() => {
-                            const val = editOrderForm.pickupDate || editOrderForm.scheduledDate || '';
-                            if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
-                            if (/^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
-                              const [d, m, y] = val.split('/');
-                              return `${y}-${m}-${d}`;
-                            }
-                            return '';
-                          })()}
-                          onChange={e => {
-                            const dVal = e.target.value;
-                            if (dVal) {
-                              const [y, m, d] = dVal.split('-');
-                              const formatted = `${d}/${m}/${y}`;
-                              setEditOrderForm({
-                                ...editOrderForm,
-                                pickupDate: formatted,
-                                scheduledDate: formatted
-                              });
-                            }
-                          }}
-                        />
-                      </div>
                     </div>
                   </div>
                   <div className="space-y-2">

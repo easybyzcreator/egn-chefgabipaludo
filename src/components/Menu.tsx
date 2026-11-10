@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { initialProducts, initialCategories } from '../data/defaultCatalog';
 import { parseMoneyValue } from '../lib/money';
 import { getSafeDishImage, handleDishImageError } from '../lib/dishImages';
+import BRDatePicker from './BRDatePicker';
 
 const translations = {
   pt: {
@@ -1953,7 +1954,7 @@ export default function Menu({ settings: initialSettings }: { settings: Settings
                             </div>
                             {product.isCombo && (
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-950 border border-amber-500/30 whitespace-nowrap">
-                                🍱 Combo {product.comboQuantity || 5} marmitas
+                                Combo {product.comboQuantity || 5} marmitas
                               </span>
                             )}
                           </div>
@@ -2268,9 +2269,9 @@ export default function Menu({ settings: initialSettings }: { settings: Settings
               {/* Image Content */}
               <div className="p-4 overflow-y-auto flex items-center justify-center bg-gray-50">
                 <img 
-                  src="/images/dicas.png" 
+                  src={settings?.storageTipsImage || "/images/dicas.png"} 
                   alt={settings.language === 'en' ? 'How to store and reheat' : 'Como armazenar e como aquecer'} 
-                  className="max-w-full max-h-[70vh] object-contain rounded-2xl shadow-md border border-gray-100"
+                  className="max-w-full max-h-[75vh] object-contain rounded-2xl shadow-md border border-gray-100"
                   onError={(e) => {
                     (e.currentTarget as HTMLImageElement).src = '/images/dishes/dicas.png';
                   }}
@@ -3092,14 +3093,12 @@ export default function Menu({ settings: initialSettings }: { settings: Settings
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-xs font-bold uppercase text-black">Target Deliver Date *</label>
-                          <input 
-                            required
-                            type="date" 
-                            className="w-full p-3 rounded-xl border border-gray-300 focus:ring-2 outline-none text-black font-sans font-semibold"
-                            style={{ '--tw-ring-color': settings.primaryColor } as any}
+                          <label className="text-xs font-bold uppercase text-black">Target Deliver Date (DD/MM/AAAA) *</label>
+                          <BRDatePicker 
                             value={b2bDate}
-                            onChange={e => setB2bDate(e.target.value)}
+                            onChange={(val) => setB2bDate(val)}
+                            placeholder="DD/MM/AAAA"
+                            className="p-3 text-black font-semibold text-sm"
                           />
                         </div>
                       </div>
@@ -6334,14 +6333,13 @@ export default function Menu({ settings: initialSettings }: { settings: Settings
                   <div className="space-y-1">
                     <label className="text-[10px] font-extrabold uppercase tracking-wider text-black flex items-center gap-1.5">
                       <Calendar size={12} className="text-[#865d39]" /> 
-                      Scheduled Delivery Date (Calendar) *
+                      Scheduled Delivery Date (DD/MM/AAAA) *
                     </label>
-                    <input 
-                      type="date" 
-                      className="w-full p-3 rounded-xl border border-gray-300 bg-white text-xs outline-none text-black font-extrabold text-black active:border-black select-all"
-                      style={{ color: '#000000' }}
+                    <BRDatePicker 
                       value={b2bDate}
-                      onChange={e => setB2bDate(e.target.value)}
+                      onChange={(val) => setB2bDate(val)}
+                      placeholder="DD/MM/AAAA"
+                      className="p-3 text-black font-extrabold text-xs"
                     />
                   </div>
 
